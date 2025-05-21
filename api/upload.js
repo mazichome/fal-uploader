@@ -3,7 +3,7 @@ import formidable from 'formidable';
 import fs from 'fs';
 
 fal.config({
-  credentials: process.env.FAL_API_KEY
+  credentials: process.env.42809663-b45c-4d11-9636-13c5553fdf1e:1444e52c4e6e6708f605227392af74ee
 });
 
 export const config = {
