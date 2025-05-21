@@ -8,8 +8,8 @@ fal.config({
 
 export const config = {
   api: {
-    bodyParser: false
-  }
+    bodyParser: false,
+  },
 };
 
 export default async function handler(req, res) {
@@ -17,19 +17,24 @@ export default async function handler(req, res) {
 
   form.parse(req, async (err, fields, files) => {
     if (err) {
-      console.error("❌ Parse error:", err);
-      return res.status(500).json({ error: 'Failed to parse form' });
+      console.error("❌ Form error:", err);
+      return res.status(500).json({ error: 'Failed to parse form data' });
     }
 
     try {
       const file = files.file;
 
-      if (!file || !file._writeStream || !file._writeStream.path) {
-        return res.status(400).json({ error: "Missing file path from stream" });
-      }
+      let buffer;
 
-      // Đọc từ path thực tế mà formidable tạo ra (tương thích n8n)
-      const buffer = fs.readFileSync(file._writeStream.path);
+      if (file?.filepath) {
+        // ✅ Cách phổ biến nhất (Postman, local)
+        buffer = fs.readFileSync(file.filepath);
+      } else if (file?._writeStream?.path) {
+        // ✅ Trường hợp đặc biệt trên Vercel + n8n
+        buffer = fs.readFileSync(file._writeStream.path);
+      } else {
+        return res.status(400).json({ error: "Cannot locate file buffer or path" });
+      }
 
       const result = await fal.storage.upload(buffer, {
         filename: file.originalFilename || "upload.jpg",
