@@ -12,10 +12,10 @@ export const config = {
 export default async function handler(req, res) {
   const form = formidable({ multiples: false });
 
-  let responded = false;
+  let handled = false;
 
   form.onPart = (part) => {
-    if (!part.filename) {
+    if (!part.filename || handled) {
       form._handlePart(part);
       return;
     }
@@ -27,33 +27,38 @@ export default async function handler(req, res) {
     part.on('end', async () => {
       try {
         const buffer = Buffer.concat(chunks);
+
         const result = await fal.storage.upload(buffer, {
-          filename: part.filename || 'upload.jpg',
+          filename: part.filename || 'upload.jpg'
         });
 
-        if (!responded) {
-          responded = true;
-          return res.status(200).json({ url: result.url });
+        if (!handled) {
+          handled = true;
+          res.status(200).json({ url: result.url });
         }
-      } catch (error) {
-        console.error('Upload error:', error);
-        if (!responded) {
-          responded = true;
-          return res.status(500).json({ error: error.message });
+      } catch (err) {
+        if (!handled) {
+          handled = true;
+          res.status(500).json({ error: err.message });
         }
       }
     });
 
     part.on('error', (err) => {
-      console.error('Stream error:', err);
-      if (!responded) {
-        responded = true;
-        res.status(500).json({ error: 'Stream failed' });
+      if (!handled) {
+        handled = true;
+        res.status(500).json({ error: 'Stream error' });
       }
     });
   };
 
+  // 👉 Chặn timeout: nếu không có part hợp lệ, vẫn cần kết thúc request
   form.parse(req, () => {
-    // Nothing needed here
+    setTimeout(() => {
+      if (!handled) {
+        handled = true;
+        res.status(400).json({ error: 'No file received' });
+      }
+    }, 3000);
   });
 }
