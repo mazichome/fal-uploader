@@ -1,49 +1,40 @@
 import { fal } from '@fal-ai/client';
 import formidable from 'formidable';
-import fs from 'fs';
 
 fal.config({
   credentials: process.env.FAL_API_KEY
 });
 
 export const config = {
-  api: {
-    bodyParser: false,
-  },
+  api: { bodyParser: false }
 };
 
 export default async function handler(req, res) {
-  const form = formidable({ multiples: false });
+  const form = formidable({ multiples: false, keepExtensions: true });
 
-  form.parse(req, async (err, fields, files) => {
-    if (err) {
-      console.error("❌ Form error:", err);
-      return res.status(500).json({ error: 'Failed to parse form data' });
+  form.onPart = function (part) {
+    if (!part.filename || !part.mime) {
+      form._handlePart(part);
+      return;
     }
 
-    try {
-      const file = files.file;
+    const chunks = [];
+    part.on('data', (chunk) => chunks.push(chunk));
+    part.on('end', async () => {
+      try {
+        const buffer = Buffer.concat(chunks);
 
-      let buffer;
+        const result = await fal.storage.upload(buffer, {
+          filename: part.filename || "upload.jpg"
+        });
 
-      if (file?.filepath) {
-        // ✅ Cách phổ biến nhất (Postman, local)
-        buffer = fs.readFileSync(file.filepath);
-      } else if (file?._writeStream?.path) {
-        // ✅ Trường hợp đặc biệt trên Vercel + n8n
-        buffer = fs.readFileSync(file._writeStream.path);
-      } else {
-        return res.status(400).json({ error: "Cannot locate file buffer or path" });
+        return res.status(200).json({ url: result.url });
+      } catch (e) {
+        console.error('Upload error:', e);
+        return res.status(500).json({ error: e.message });
       }
+    });
+  };
 
-      const result = await fal.storage.upload(buffer, {
-        filename: file.originalFilename || "upload.jpg",
-      });
-
-      return res.status(200).json({ url: result.url });
-    } catch (error) {
-      console.error("❌ Upload error:", error);
-      return res.status(500).json({ error: error.message });
-    }
-  });
+  form.parse(req, () => {});
 }
