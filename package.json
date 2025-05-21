@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@fal-ai/client": "^0.3.7",
+    "@fal-ai/client": "^0.3.6",
     "formidable": "^3.5.0"
   }
 }
